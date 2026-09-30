@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     app_name: str = "OCR Application"
     app_version: str = "0.1.0"
     data_dir: Path = Path("data")
+    max_upload_mb: int = 512
 
     model_config = SettingsConfigDict(env_file=".env")
 
