@@ -1,11 +1,18 @@
 from fastapi import FastAPI
 from app.routers import health
+from app import config
 
-app = FastAPI(title="OCR APP" , version="1.0.0")
+settings = config.get_settings()
+
+app = FastAPI(title=settings.app_name , version=settings.app_version)
 
 @app.get("/")
 def root():
-    return {"message":"OCR Application"}
+    return {
+        "app":settings.app_name,
+        "version":settings.app_version,
+        "docs":"/docs"
+    }
 
 
 app.include_router(
