@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     data_dir: Path = Path("data")
     max_upload_mb: int = 512
 
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property
     def upload_dir(self) -> Path:
