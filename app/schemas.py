@@ -12,7 +12,7 @@ class JobSnapshot(BaseModel):
     id: str
     filename: str
     kind: MediaKind
-    status: JobStatus
-    progress: float = Field(ge=0, le=1)
-    message: str
+    status: JobStatus = "queued"
+    progress: float = Field(default=0.0, ge=0, le=1)
+    message: str = ""
     created_at: float = Field(default_factory=time.time)
