@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 MediaKind = Literal["image", "video"]
 
@@ -12,5 +12,5 @@ class JobSnapshot(BaseModel):
     filename: str
     kind: MediaKind
     status: JobStatus
-    progress: float
+    progress: float = Field(ge=0, le=1)
     message: str
