@@ -1,3 +1,4 @@
+import time
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -14,3 +15,4 @@ class JobSnapshot(BaseModel):
     status: JobStatus
     progress: float = Field(ge=0, le=1)
     message: str
+    created_at: float = Field(default_factory=time.time)
