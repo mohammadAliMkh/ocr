@@ -16,14 +16,14 @@ log = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # این‌جا: موقع روشن شدن
+
     settings.build()
 
     log.info("Starting %s v%s", settings.app_name, settings.app_version)
     log.info("Data directory: %s", settings.data_dir)
 
     yield
-    # این‌جا: موقع خاموش شدن
+
     log.info("Shutdown complete")
 
 
