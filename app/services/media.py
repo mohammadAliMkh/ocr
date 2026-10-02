@@ -10,7 +10,10 @@ class MediaError(Exception):
     pass
 
 
-def detect_kind(path: Path) -> MediaKind:
+def detect_kind(
+    path: Path,
+    content_type: str | None = None,
+) -> MediaKind:
     suffix = path.suffix.lower()
 
     if suffix in VIDEO_EXTENSIONS:
@@ -19,4 +22,11 @@ def detect_kind(path: Path) -> MediaKind:
     if suffix in IMAGE_EXTENSIONS:
         return "image"
 
-    raise MediaError(f"Unsupported file type: {suffix or 'unknown'}")
+    if content_type:
+        if content_type.startswith("video/"):
+            return "video"
+
+        if content_type.startswith("image/"):
+            return "image"
+
+    raise ValueError(f"Unsupported media type: {suffix or content_type or 'unknown'}")
