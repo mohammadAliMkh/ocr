@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     data_dir: Path = Path("data")
     max_upload_mb: int = 512
     log_level: str = "INFO"
+    cors_origins: str = "*"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -20,6 +21,12 @@ class Settings(BaseSettings):
     @property
     def output_dir(self) -> Path:
         return self.data_dir / "outputs"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [
+            origin.strip() for origin in self.cors_origins.split(",") if origin.strip()
+        ]
 
     def build(self) -> None:
         self.upload_dir.mkdir(parents=True, exist_ok=True)
