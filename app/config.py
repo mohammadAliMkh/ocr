@@ -25,6 +25,13 @@ class Settings(BaseSettings):
         self.upload_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
+    def public_snapshot(self) -> dict:
+        return {
+            "app_name": self.app_name,
+            "app_version": self.app_version,
+            "max_upload_mb": self.max_upload_mb,
+        }
+
 
 @lru_cache
 def get_settings() -> Settings:

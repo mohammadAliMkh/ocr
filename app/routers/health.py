@@ -2,9 +2,16 @@ import logging
 
 from fastapi import APIRouter
 
+from app.config import get_settings
+
 router = APIRouter(tags=["system"])
 
 log = logging.getLogger(__name__)
+
+
+@router.get("/config")
+async def get_config():
+    return get_settings().public_snapshot()
 
 
 @router.get("/health")
