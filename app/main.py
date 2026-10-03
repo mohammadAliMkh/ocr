@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import config
 from app.logging_setup import setup_logging
-from app.routers import health
+from app.routers import health , analyze
 
 settings = config.get_settings()
 
@@ -43,3 +43,6 @@ def root():
 
 
 app.include_router(health.router, prefix="/api")
+
+app.include_router(analyze.router, prefix="/api")
+
