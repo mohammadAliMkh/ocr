@@ -37,3 +37,9 @@ class JobStore:
 
     def get(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
+
+    def list_jobs(self) -> list[Job]:
+        return list(reversed(self._jobs.values()))
+
+    def delete(self, job_id: str) -> bool:
+        return self._jobs.pop(job_id, None) is not None
