@@ -45,4 +45,3 @@ def root():
 app.include_router(health.router, prefix="/api")
 
 app.include_router(analyze.router, prefix="/api")
-

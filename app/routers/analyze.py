@@ -1,13 +1,15 @@
 from pathlib import Path
-from uuid import uuid4
-
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from app.config import get_settings
 from app.services.media import MediaError, detect_kind
 from app.schemas import JobSnapshot
 
+from app.services.jobs import JobStore
+
 router = APIRouter(tags=["analyze"])
+
+jobs = JobStore()
 
 
 @router.post("/analyze", response_model=JobSnapshot)
@@ -17,8 +19,8 @@ async def create_analysis(file: UploadFile = File(...)):
         kind = detect_kind(Path(filename), file.content_type)
     except MediaError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    job_id = f"job_{uuid4().hex[:12]}"
-    target = get_settings().upload_dir / f"{job_id}{Path(filename).suffix.lower()}"
+    job = jobs.create(kind=kind, filename=filename)
+    target = get_settings().upload_dir / f"{job.id}{Path(filename).suffix.lower()}"
 
     limit = get_settings().max_upload_mb * 1024 * 1024
     written = 0
@@ -37,11 +39,8 @@ async def create_analysis(file: UploadFile = File(...)):
 
     except HTTPException:
         target.unlink(missing_ok=True)
+        jobs.delete(job.id)
         raise
 
-    return JobSnapshot(
-        id=job_id,
-        filename=filename,
-        kind=kind,
-        message=f"File received ({written} bytes)",
-    )
+    job.message = f"File received ({written} bytes)"
+    return job.snapshot()
