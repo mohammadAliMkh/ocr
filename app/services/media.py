@@ -29,4 +29,4 @@ def detect_kind(
         if content_type.startswith("image/"):
             return "image"
 
-    raise MediaError(f"Unsupported file type: {suffix or 'unknown'}")
+    raise MediaError(f"Unsupported file type: {suffix or content_type or 'unknown'}")
