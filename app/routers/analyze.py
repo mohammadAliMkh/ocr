@@ -5,11 +5,12 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from app.config import get_settings
 from app.services.media import MediaError, detect_kind
+from app.schemas import JobSnapshot
 
 router = APIRouter(tags=["analyze"])
 
 
-@router.post("/analyze")
+@router.post("/analyze", response_model=JobSnapshot)
 async def create_analysis(file: UploadFile = File(...)):
     filename = file.filename or "upload"
     try:
@@ -38,4 +39,9 @@ async def create_analysis(file: UploadFile = File(...)):
         target.unlink(missing_ok=True)
         raise
 
-    return {"job_id": job_id, "kind": kind, "path": str(target), "size": written}
+    return JobSnapshot(
+        id=job_id,
+        filename=filename,
+        kind=kind,
+        message=f"File received ({written} bytes)",
+    )
