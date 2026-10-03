@@ -19,6 +19,7 @@ async def create_analysis(file: UploadFile = File(...)):
     job_id = f"job_{uuid4().hex[:12]}"
     target = get_settings().upload_dir / f"{job_id}{Path(filename).suffix.lower()}"
 
+    limit = get_settings().max_upload_mb * 1024 * 1024
     written = 0
     with target.open("wb") as handle:
         while True:
@@ -26,6 +27,8 @@ async def create_analysis(file: UploadFile = File(...)):
             if not chunk:
                 break
             written += len(chunk)
+            if written > limit:
+                raise HTTPException(status_code=413, detail="File is too large")
             handle.write(chunk)
 
     return {"job_id": job_id, "kind": kind, "path": str(target), "size":written}
