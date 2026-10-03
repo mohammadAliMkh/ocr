@@ -21,14 +21,21 @@ async def create_analysis(file: UploadFile = File(...)):
 
     limit = get_settings().max_upload_mb * 1024 * 1024
     written = 0
-    with target.open("wb") as handle:
-        while True:
-            chunk = await file.read(1024 * 1024)
-            if not chunk:
-                break
-            written += len(chunk)
-            if written > limit:
-                raise HTTPException(status_code=413, detail="File is too large")
-            handle.write(chunk)
 
-    return {"job_id": job_id, "kind": kind, "path": str(target), "size":written}
+    try:
+        with target.open("wb") as handle:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+
+                    break
+                written += len(chunk)
+                if written > limit:
+                    raise HTTPException(status_code=413, detail="File is too large")
+                handle.write(chunk)
+
+    except HTTPException:
+        target.unlink(missing_ok=True)
+        raise
+
+    return {"job_id": job_id, "kind": kind, "path": str(target), "size": written}
