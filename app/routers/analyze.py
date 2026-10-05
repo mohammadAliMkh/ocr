@@ -5,6 +5,7 @@ from app.config import get_settings
 from app.services.media import MediaError, detect_kind
 from app.schemas import JobSnapshot
 from app.deps import container
+from app.services.pipeline import fake_pipeline
 
 router = APIRouter(tags=["analyze"])
 
@@ -42,6 +43,7 @@ async def create_analysis(file: UploadFile = File(...)):
         raise
 
     job.message = f"File received ({written} bytes)"
+    container.spawn(fake_pipeline(job))
     return job.snapshot()
 
 @router.get("/jobs", response_model=list[JobSnapshot])
