@@ -3,6 +3,8 @@ from uuid import uuid4
 
 from app.schemas import JobSnapshot, JobStatus, MediaKind
 
+from pathlib import Path
+
 
 class Job:
     def __init__(self, kind: MediaKind, filename: str) -> None:
@@ -13,6 +15,7 @@ class Job:
         self.progress = 0.0
         self.message = ""
         self.created_at = time.time()
+        self.upload_path: Path | None = None
 
     def snapshot(self) -> JobSnapshot:
         return JobSnapshot(

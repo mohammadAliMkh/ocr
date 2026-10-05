@@ -22,6 +22,8 @@ async def create_analysis(file: UploadFile = File(...)):
     job = jobs.create(kind=kind, filename=filename)
     target = get_settings().upload_dir / f"{job.id}{Path(filename).suffix.lower()}"
 
+    job.upload_path = target
+
     limit = get_settings().max_upload_mb * 1024 * 1024
     written = 0
 
@@ -55,3 +57,13 @@ async def get_job(job_id: str):
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     return job.snapshot()
+
+@router.delete("/jobs/{job_id}")
+async def delete_job(job_id: str):
+    job = jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.upload_path:
+        job.upload_path.unlink(missing_ok=True)
+    jobs.delete(job_id)
+    return {"deleted": job_id}
