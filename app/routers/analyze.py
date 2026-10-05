@@ -45,6 +45,9 @@ async def create_analysis(file: UploadFile = File(...)):
     job.message = f"File received ({written} bytes)"
     return job.snapshot()
 
+@router.get("/jobs", response_model=list[JobSnapshot])
+async def get_jobs():
+    return [job.snapshot() for job in jobs.list_jobs()]
 
 @router.get("/jobs/{job_id}", response_model=JobSnapshot)
 async def get_job(job_id: str):
