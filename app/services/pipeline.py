@@ -9,7 +9,7 @@ log = logging.getLogger(__name__)
 async def fake_pipeline(job: Job) -> None:
     job.status = "running"
     for step in range(1, 6):
-        await asyncio.sleep(1)
+        await asyncio.sleep(4)
         job.progress = step / 5
         job.message = f"Step {step}/5"
     job.status = "done"
