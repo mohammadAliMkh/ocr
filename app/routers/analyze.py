@@ -44,3 +44,11 @@ async def create_analysis(file: UploadFile = File(...)):
 
     job.message = f"File received ({written} bytes)"
     return job.snapshot()
+
+
+@router.get("/jobs/{job_id}", response_model=JobSnapshot)
+async def get_job(job_id: str):
+    job = jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job.snapshot()
