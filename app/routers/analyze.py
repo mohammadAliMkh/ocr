@@ -4,12 +4,9 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from app.config import get_settings
 from app.services.media import MediaError, detect_kind
 from app.schemas import JobSnapshot
-
-from app.services.jobs import JobStore
+from app.deps import container
 
 router = APIRouter(tags=["analyze"])
-
-jobs = JobStore()
 
 
 @router.post("/analyze", response_model=JobSnapshot)
@@ -19,7 +16,7 @@ async def create_analysis(file: UploadFile = File(...)):
         kind = detect_kind(Path(filename), file.content_type)
     except MediaError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    job = jobs.create(kind=kind, filename=filename)
+    job = container.jobs.create(kind=kind, filename=filename)
     target = get_settings().upload_dir / f"{job.id}{Path(filename).suffix.lower()}"
 
     job.upload_path = target
@@ -41,7 +38,7 @@ async def create_analysis(file: UploadFile = File(...)):
 
     except HTTPException:
         target.unlink(missing_ok=True)
-        jobs.delete(job.id)
+        container.jobs.delete(job.id)
         raise
 
     job.message = f"File received ({written} bytes)"
@@ -49,21 +46,21 @@ async def create_analysis(file: UploadFile = File(...)):
 
 @router.get("/jobs", response_model=list[JobSnapshot])
 async def get_jobs():
-    return [job.snapshot() for job in jobs.list_jobs()]
+    return [job.snapshot() for job in container.jobs.list_jobs()]
 
 @router.get("/jobs/{job_id}", response_model=JobSnapshot)
 async def get_job(job_id: str):
-    job = jobs.get(job_id)
+    job = container.jobs.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     return job.snapshot()
 
 @router.delete("/jobs/{job_id}")
 async def delete_job(job_id: str):
-    job = jobs.get(job_id)
+    job = container.jobs.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
     if job.upload_path:
         job.upload_path.unlink(missing_ok=True)
-    jobs.delete(job_id)
+    container.jobs.delete(job_id)
     return {"deleted": job_id}
