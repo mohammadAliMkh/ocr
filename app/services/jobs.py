@@ -27,7 +27,18 @@ class Job:
         if message:
             self.message = message
         self.publish("progress", progress=self.progress, message=self.message)
-        
+
+    def finish(self, message: str = "Analysis complete") -> None:
+        self.status = "done"
+        self.progress = 1.0
+        self.message = message
+        self.publish("done", message=self.message)
+
+    def fail(self, error: str) -> None:
+        self.status = "error"
+        self.message = error
+        self.publish("error", message=error)       
+         
     def snapshot(self) -> JobSnapshot:
         return JobSnapshot(
             id=self.id,
