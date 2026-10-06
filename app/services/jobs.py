@@ -21,6 +21,12 @@ class Job:
     def publish(self, event_type: str, **data) -> None:
         event = {"type": event_type, "ts": time.time(), **data}
         self.events.append(event)
+
+    def set_progress(self, value: float, message: str = "") -> None:
+        self.progress = max(0.0, min(1.0, value))
+        if message:
+            self.message = message
+        self.publish("progress", progress=self.progress, message=self.message)
         
     def snapshot(self) -> JobSnapshot:
         return JobSnapshot(

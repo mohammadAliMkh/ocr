@@ -10,8 +10,7 @@ async def fake_pipeline(job: Job) -> None:
         job.status = "running"
         for step in range(1, 6):
             await asyncio.sleep(4)
-            job.progress = step / 5
-            job.message = f"Step {step}/5"
+            job.set_progress(step / 5, f"Step {step}/5")
         job.status = "done"
         job.message = "Analysis complete"
         log.info("Job %s done", job.id)
