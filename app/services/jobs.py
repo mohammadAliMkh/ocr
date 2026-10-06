@@ -16,7 +16,12 @@ class Job:
         self.message = ""
         self.created_at = time.time()
         self.upload_path: Path | None = None
+        self.events: list[dict] = []
 
+    def publish(self, event_type: str, **data) -> None:
+        event = {"type": event_type, "ts": time.time(), **data}
+        self.events.append(event)
+        
     def snapshot(self) -> JobSnapshot:
         return JobSnapshot(
             id=self.id,
