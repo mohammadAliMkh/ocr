@@ -5,6 +5,8 @@ from app.schemas import JobSnapshot, JobStatus, MediaKind
 
 from pathlib import Path
 
+import asyncio
+
 
 class Job:
     def __init__(self, kind: MediaKind, filename: str) -> None:
@@ -17,10 +19,13 @@ class Job:
         self.created_at = time.time()
         self.upload_path: Path | None = None
         self.events: list[dict] = []
+        self._subscribers: set[asyncio.Queue] = set()
 
     def publish(self, event_type: str, **data) -> None:
         event = {"type": event_type, "ts": time.time(), **data}
         self.events.append(event)
+        for queue in self._subscribers:
+            queue.put_nowait(event)
 
     def set_progress(self, value: float, message: str = "") -> None:
         self.progress = max(0.0, min(1.0, value))
@@ -37,8 +42,20 @@ class Job:
     def fail(self, error: str) -> None:
         self.status = "error"
         self.message = error
-        self.publish("error", message=error)       
-         
+        self.publish("error", message=error)
+
+    async def subscribe(self):
+        queue: asyncio.Queue = asyncio.Queue()
+        self._subscribers.add(queue)
+        try:
+            while True:
+                event = await queue.get()
+                yield event
+                if event["type"] in ("done", "error"):
+                    return
+        finally:
+            self._subscribers.discard(queue)       
+
     def snapshot(self) -> JobSnapshot:
         return JobSnapshot(
             id=self.id,
