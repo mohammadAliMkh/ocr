@@ -48,6 +48,10 @@ class Job:
         queue: asyncio.Queue = asyncio.Queue()
         self._subscribers.add(queue)
         try:
+            for event in list(self.events):
+                yield event
+                if event["type"] in ("done", "error"):
+                    return
             while True:
                 event = await queue.get()
                 yield event
