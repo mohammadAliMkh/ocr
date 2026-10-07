@@ -103,7 +103,40 @@ app/
 
 ## ۴. تیکت فعلی
 
-### ✅ اسپرینت ۲ بسته شد — بعدی: اسپرینت ۳ (سشن «اسپرینت ۳ — OCR تصویر»)
+### 🔶 اسپرینت ۳ — OCR تصویر (سشن «اسپرینت ۳ — OCR تصویر»)
+**محدودیت محیط شرکت:** ادمین نیستیم؛ Tesseract و ffmpeg نصب نیستند؛ GPU و مدل بینایی واقعی نداریم. پس: Tesseract باید **بی‌صدا غیرفعال شود** اگر نبود (شرکت ← مسیر degrade تست می‌شود، خونه ← OCR واقعی با زبان `fas`)؛ VLM با **سرور Mock سازگار با OpenAI** جلو می‌رود.
+**تصمیم طراحی:** فعلاً فقط تصویر ← به‌جای numpy/opencv مستقیم با Pillow کار می‌کنیم (cv2 برای ویدیو در اسپرینت ۴). YOLO/چهره/رسم کادر/گزارش مال اسپرینت‌های بعد.
+
+#### 🔶 T13 — Tesseract در `app/services/vision.py`
+1. نصب `pytesseract` و `pillow` + `requirements.txt`؛ تلاش برای نصب موتور (`winget install --id UB-Mannheim.TesseractOCR --scope user`؛ اگر ادمین خواست، بی‌خیال). تست: `pytesseract.get_tesseract_version()` ← نسخه یا `TesseractNotFoundError`. مفهوم: پکیج pip فقط wrapper است که `tesseract.exe` را با subprocess صدا می‌زند. ✅
+2. Settings: `enable_tesseract: bool = True`، `tesseract_langs: str = "eng"` (خونه: `fas+eng`)، `tesseract_min_conf: float = 40.0`، `tesseract_cmd: str = ""` (نصب‌کننده‌ی ویندوز PATH را عوض نمی‌کند) + `tesseract_lang_list` + `.env.example`. ← **داده شد**
+3. `VisionAnalyzer(settings)` با `load()`: اگر `tesseract_cmd` داشت ← `pytesseract.pytesseract.tesseract_cmd`؛ نسخه و `get_languages()`؛ زبان‌های موجود را نگه دار، کمبودها را warning کن؛ هر خطا ← `log.warning` و غیرفعال (Graceful Degradation، نه کرش سرور).
+4. `ocr_image(path) -> str` با `image_to_string` (اگر غیرفعال ← `""`).
+5. `image_to_data(..., output_type=DICT)` ← گروه‌بندی کلمه‌ها به سطر با کلید `(block, par, line)`، فیلتر `conf < min_conf`، خروجی `(text, lines)` که هر line = `{"text", "confidence" (۰..۱)}`. (bbox بعداً برای رسم کادر.)
+6. `container.vision` + `load()` در lifespan با `asyncio.to_thread` + `status()` در `/api/health`.
+
+#### ⬜ T14 — `app/services/vlm.py` با httpx + سرور Mock
+1. نصب `httpx`؛ Settings: `vlm_base_url` (پیش‌فرض Mock: `http://127.0.0.1:9000/v1`)، `vlm_model`، `vlm_api_key="EMPTY"`، `vlm_timeout_s`، `vlm_max_tokens`، `vlm_temperature`.
+2. `tools/mock_vlm.py` (کارآموز خودش می‌نویسد): FastAPI روی پورت 9000 با `GET /v1/models` و `POST /v1/chat/completions` به شکل پاسخ OpenAI (`choices[0].message.content`) با یک JSON ثابت. مفهوم: «قرارداد OpenAI» که vLLM/Ollama/... همه پیاده می‌کنند.
+3. `VLMError` + `VLMClient`: `httpx.AsyncClient` تنبل (lazy) با `base_url`/`timeout`/هدر `Authorization`، و `aclose()`.
+4. `check_ready()` ← `GET /models` ← `(bool, پیام)`.
+5. `chat(messages) -> str` ← `POST /chat/completions`؛ خطای شبکه/HTTP≥400/شکل نامعتبر ← `VLMError`.
+6. `encode_image_data_url(path, max_side)` با Pillow (`exif_transpose`، کوچک کردن، JPEG، base64) + محتوای چندبخشی `image_url` + `text`.
+7. `container.vlm` + `Container.shutdown()` ← `vlm.aclose()` در lifespan (بدهی اسپرینت ۲). (اختیاری بعداً: Ollama روی همین سیستم هم OpenAI-compatible است.)
+
+#### ⬜ T15 — `app/prompts.py` + استخراج JSON
+1. `IMAGE_SYSTEM` (نسخه‌ی ساده‌ی مرجع: `summary`، `ocr_text`، `document_type`، `languages`، `entities`، `notes`؛ «فقط JSON، ترجمه نکن، حدس نزن») + `image_user_text(hint=None)`.
+2. `extract_json(text) -> dict`: خالی ← `ValueError`؛ `json.loads`.
+3. پاک کردن ```` ```json ```` دور جواب. 4. برش از اولین `{` تا آخرین `}`. 5. حذف ویرگول اضافه قبل از `}`/`]` با regex. (Mock را طوری کن که هر حالت را برگرداند.)
+6. `VLMClient.json_call(system, user_text, images)`: chat ← extract_json؛ اگر خراب بود یک بار دیگر با یادآوری کوتاه + `response_format={"type":"json_object"}`؛ وگرنه `VLMError`.
+
+#### ⬜ T16 — `pipeline.py`: خط لوله‌ی تصویر
+1. schemas: `TextLine`، `Entity`، `AnalysisResult` (job_id، filename، width/height، summary، document_type، languages، ocr_text، text_lines، entities، warnings).
+2. `Job.result` + `GET /api/jobs/{id}/result` (تا done نشده ← 409، نبود ← 404).
+3. `analyze_image(job)`: مراحل progress ← ابعاد با Pillow ← Tesseract با `asyncio.to_thread` ← `vlm.json_call` (VLMError ← warning و ادامه، نه fail) ← ادغام OCR (`_merge_ocr`) ← `AnalysisResult` ← `finish`.
+4. `run_pipeline(job)` بر اساس `kind` (ویدیو ← فعلاً fail «پشتیبانی نمی‌شود» تا اسپرینت ۴) و جایگزینی `fake_pipeline` در روتر.
+5. تست سرتاسری: آپلود ← SSE ← result؛ با Mock خاموش (فقط Tesseract/warning) و روشن.
+
 **وضعیت کد در پایان اسپرینت ۲:**
 - `app/services/jobs.py`: `Job` (`id`، `kind`، `filename`، `status`، `progress`، `message`، `created_at`، `upload_path`، `events`، `_subscribers`) با متدهای `publish(type, **data)`، `set_progress(value, message)` (clamp ۰..۱)، `finish(message)`، `fail(error)`، async generator `subscribe()` (اول کپی تاریخچه، بعد صف زنده، پایان روی `done`/`error`، `finally` ← discard)، `snapshot()`. `JobStore`: `create`، `get`، `list_jobs` (جدیدترین اول)، `delete -> bool`.
 - `app/deps.py`: `Container` با `jobs` و `tasks: set` و `spawn(coro)`؛ `container = Container()`.
@@ -195,11 +228,13 @@ app/
 ### جلسه‌ی ۶ — 2026-10-07 (شرکت)
 - T12 قدم ۴ب ✅ (کد `subscribe` با replay تاریخچه درست؛ `scratch_sub.py` پاک شد). commit: `feat: replay past events to late subscribers`. قدم ۵ (endpoint SSE) داده شد.
 - T12 قدم ۵ ✅ با `curl.exe -N`: وسط تحلیل رویدادها یکی‌یکی؛ بعد از done همه یک‌جا و اتصال بسته (replay تاریخچه)؛ id ساختگی ← 404. commit: `feat: stream job events over SSE` ← **T12 و اسپرینت ۲ بسته شدند.** ادامه در سشن «اسپرینت ۳ — OCR تصویر».
+- سشن «اسپرینت ۳ — OCR تصویر» شروع شد (`f98be40`، working tree تمیز). چک محیط شرکت: ادمین نیستیم، Tesseract و ffmpeg نیستند، `httpx`/`pillow`/`pytesseract` نصب نیستند. T13 تا T16 از روی مرجع ریز شدند (بخش ۴). T13 قدم ۱ (نصب pytesseract/pillow + تلاش برای موتور) داده شد.
+- T13 قدم ۱ ✅: `pytesseract 0.3.13` و `pillow 12.3.0` نصب و در requirements. winget روی منبع `msstore` خطای گواهی داد (احتمالاً بازرسی SSL پراکسی شرکت) ← یک بار با `--source winget` امتحان شود، وگرنه بی‌خیال. تست ← `TesseractNotFoundError` (همان خطایی که `load()` باید بگیرد). commit: `chore: add pytesseract and pillow dependencies`. قدم ۲ (Settings) داده شد.
 
 ---
 
 ## ۶. محیط و نسخه‌ها
-- **شرکت:** پایتون 3.12.10 · fastapi 0.141.1 · starlette 1.7.0 · uvicorn 0.54.0 · pydantic 2.13.5
+- **شرکت:** پایتون 3.12.10 · fastapi 0.141.1 · starlette 1.7.0 · uvicorn 0.54.0 · pydantic 2.13.5 · بدون دسترسی ادمین، بدون GPU، Tesseract و ffmpeg نصب نیستند (winget هست؛ Ollama هم نصب است)
 - **خونه:** پایتون 3.14.5 · fastapi 0.142.2 · pydantic-settings 2.15.0 (بقیه مشابه)
 - کد باید روی هر دو اجرا شود (از امکانات مخصوص ۳.۱۳/۳.۱۴ استفاده نشود).
 - پروژه‌ی مرجع در Dockerfile از `python:3.11` استفاده می‌کند.
