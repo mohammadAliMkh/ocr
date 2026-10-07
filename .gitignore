@@ -2,4 +2,4 @@
 __pycache__/
 .env
 /data
-/scratch_sub.py
+scratch_*.py
