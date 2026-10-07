@@ -6,6 +6,9 @@ from app.services.media import MediaError, detect_kind
 from app.schemas import JobSnapshot
 from app.deps import container
 from app.services.pipeline import fake_pipeline
+import json
+
+from fastapi.responses import StreamingResponse
 
 router = APIRouter(tags=["analyze"])
 
@@ -66,3 +69,16 @@ async def delete_job(job_id: str):
         job.upload_path.unlink(missing_ok=True)
     container.jobs.delete(job_id)
     return {"deleted": job_id}
+
+
+@router.get("/jobs/{job_id}/events")
+async def job_events(job_id: str):
+    job = container.jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    async def stream():
+        async for event in job.subscribe():
+            yield f"event: {event['type']}\ndata: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(stream(), media_type="text/event-stream")
