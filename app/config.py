@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     max_upload_mb: int = 512
     log_level: str = "INFO"
     cors_origins: str = "*"
+    enable_tesseract: bool = True
+    tesseract_langs: str = "eng"
+    tesseract_min_conf: float = 40.0
+    tesseract_cmd: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -26,6 +30,12 @@ class Settings(BaseSettings):
     def cors_origin_list(self) -> list[str]:
         return [
             origin.strip() for origin in self.cors_origins.split(",") if origin.strip()
+        ]
+
+    @property
+    def tesseract_lang_list(self) -> list[str]:
+        return [
+            lang.strip() for lang in self.tesseract_langs.split("+") if lang.strip()
         ]
 
     def build(self) -> None:

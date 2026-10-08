@@ -109,8 +109,8 @@ app/
 
 #### 🔶 T13 — Tesseract در `app/services/vision.py`
 1. نصب `pytesseract` و `pillow` + `requirements.txt`؛ تلاش برای نصب موتور (`winget install --id UB-Mannheim.TesseractOCR --scope user`؛ اگر ادمین خواست، بی‌خیال). تست: `pytesseract.get_tesseract_version()` ← نسخه یا `TesseractNotFoundError`. مفهوم: پکیج pip فقط wrapper است که `tesseract.exe` را با subprocess صدا می‌زند. ✅
-2. Settings: `enable_tesseract: bool = True`، `tesseract_langs: str = "eng"` (خونه: `fas+eng`)، `tesseract_min_conf: float = 40.0`، `tesseract_cmd: str = ""` (نصب‌کننده‌ی ویندوز PATH را عوض نمی‌کند) + `tesseract_lang_list` + `.env.example`. ← **داده شد**
-3. `VisionAnalyzer(settings)` با `load()`: اگر `tesseract_cmd` داشت ← `pytesseract.pytesseract.tesseract_cmd`؛ نسخه و `get_languages()`؛ زبان‌های موجود را نگه دار، کمبودها را warning کن؛ هر خطا ← `log.warning` و غیرفعال (Graceful Degradation، نه کرش سرور).
+2. Settings: `enable_tesseract: bool = True`، `tesseract_langs: str = "eng"` (خونه: `fas+eng`)، `tesseract_min_conf: float = 40.0`، `tesseract_cmd: str = ""` (نصب‌کننده‌ی ویندوز PATH را عوض نمی‌کند) + `tesseract_lang_list` + `.env.example`. ✅
+3. (۳الف ← **داده شد**: اسکلت کلاس + `load()` فقط با نسخه و try/except؛ ۳ب: زبان‌ها) `VisionAnalyzer(settings)` با `load()`: اگر `tesseract_cmd` داشت ← `pytesseract.pytesseract.tesseract_cmd`؛ نسخه و `get_languages()`؛ زبان‌های موجود را نگه دار، کمبودها را warning کن؛ هر خطا ← `log.warning` و غیرفعال (Graceful Degradation، نه کرش سرور).
 4. `ocr_image(path) -> str` با `image_to_string` (اگر غیرفعال ← `""`).
 5. `image_to_data(..., output_type=DICT)` ← گروه‌بندی کلمه‌ها به سطر با کلید `(block, par, line)`، فیلتر `conf < min_conf`، خروجی `(text, lines)` که هر line = `{"text", "confidence" (۰..۱)}`. (bbox بعداً برای رسم کادر.)
 6. `container.vision` + `load()` در lifespan با `asyncio.to_thread` + `status()` در `/api/health`.
@@ -230,6 +230,12 @@ app/
 - T12 قدم ۵ ✅ با `curl.exe -N`: وسط تحلیل رویدادها یکی‌یکی؛ بعد از done همه یک‌جا و اتصال بسته (replay تاریخچه)؛ id ساختگی ← 404. commit: `feat: stream job events over SSE` ← **T12 و اسپرینت ۲ بسته شدند.** ادامه در سشن «اسپرینت ۳ — OCR تصویر».
 - سشن «اسپرینت ۳ — OCR تصویر» شروع شد (`f98be40`، working tree تمیز). چک محیط شرکت: ادمین نیستیم، Tesseract و ffmpeg نیستند، `httpx`/`pillow`/`pytesseract` نصب نیستند. T13 تا T16 از روی مرجع ریز شدند (بخش ۴). T13 قدم ۱ (نصب pytesseract/pillow + تلاش برای موتور) داده شد.
 - T13 قدم ۱ ✅: `pytesseract 0.3.13` و `pillow 12.3.0` نصب و در requirements. winget روی منبع `msstore` خطای گواهی داد (احتمالاً بازرسی SSL پراکسی شرکت) ← یک بار با `--source winget` امتحان شود، وگرنه بی‌خیال. تست ← `TesseractNotFoundError` (همان خطایی که `load()` باید بگیرد). commit: `chore: add pytesseract and pillow dependencies`. قدم ۲ (Settings) داده شد.
+
+### جلسه‌ی ۷ — 2026-10-08 (خونه)
+- همگام‌سازی خونه: checkout روی `0f55c23` و هم‌تراز با `origin/main`، working tree تمیز. venv خونه `python-multipart`، `pillow`، `pytesseract` را دارد. موتور Tesseract روی خونه هنوز نصب نیست (اینجا ادمین هستیم ← نصب‌کننده‌ی UB-Mannheim با زبان Persian برای OCR واقعی `fas+eng`). سشن کهنه‌ی «اسپرینت ۲» خونه بسته شد و ادامه به سشن «اسپرینت ۳ — OCR تصویر» رفت؛ قدم بعدی کارآموز: T13 قدم ۲ (Settings تسرکت) — هنوز روی دیسک نیست.
+- سشن خونه‌ی «اسپرینت ۳» شروع شد: کارفرما کد را چک کرد (`config.py` هنوز فیلدهای Tesseract را ندارد) ← T13 قدم ۲ دوباره با قالب کامل داده شد + پیشنهاد اختیاری نصب موتور UB-Mannheim با زبان Persian روی خونه.
+- موتور Tesseract روی خونه نصب شد (`--list-langs` ← `eng`، `fas`، `osd`). کارآموز `TESSERACT_CMD=...` را در PowerShell زد ← درس: خط `.env` تنظیمات است نه دستور ترمینال. `.env` خونه: `TESSERACT_LANGS=fas+eng` و `TESSERACT_CMD`.
+- T13 قدم ۲ ✅ (`tesseract_lang_list` را کارفرما به درخواست کارآموز نوشت). تست کارفرما: `True fas+eng ['fas','eng'] 40.0 '<مسیر exe>'`؛ `ENABLE_TESSERACT=false` ← `False` بولین؛ `' fas + +eng '` ← `['fas','eng']`؛ `abc` ← ValidationError. commit: `feat: add tesseract settings`. قدم ۳الف داده شد.
 
 ---
 
