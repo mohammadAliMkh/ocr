@@ -1,6 +1,8 @@
 import logging
+from pathlib import Path
 
 import pytesseract
+from PIL import Image
 
 from app.config import Settings
 
@@ -58,3 +60,15 @@ class VisionAnalyzer:
         except Exception as exc:
             log.warning("Tesseract disabled: %s", exc)
             self.tesseract_ok = False
+
+    def ocr_image(self, path: Path) -> str:
+        if not self.tesseract_ok:
+            return ""
+
+        with Image.open(path) as img:
+            text = pytesseract.image_to_string(
+                img,
+                lang="+".join(self.tesseract_langs),
+            )
+
+        return text.strip()
