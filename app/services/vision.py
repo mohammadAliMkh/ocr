@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytesseract
 from PIL import Image
+from pytesseract import Output
 
 from app.config import Settings
 
@@ -72,3 +73,49 @@ class VisionAnalyzer:
             )
 
         return text.strip()
+
+    def ocr_lines(self, path: Path) -> tuple[str, list[dict]]:
+        if not self.tesseract_ok:
+            return "", []
+
+        with Image.open(path) as img:
+            data = pytesseract.image_to_data(
+                img,
+                lang="+".join(self.tesseract_langs),
+                output_type=Output.DICT,
+            )
+
+        lines: dict[tuple[int, int, int], list[tuple[str, float]]] = {}
+
+        for i in range(len(data["text"])):
+            word = data["text"][i].strip()
+            conf = float(data["conf"][i])
+
+            if not word or conf < self.settings.tesseract_min_conf:
+                continue
+
+            key = (
+                int(data["block_num"][i]),
+                int(data["par_num"][i]),
+                int(data["line_num"][i]),
+            )
+
+            lines.setdefault(key, []).append((word, conf))
+
+        result: list[dict] = []
+
+        for words in lines.values():
+            line_text = " ".join(word for word, _ in words)
+
+            confidence = sum(conf for _, conf in words) / len(words) / 100
+
+            result.append(
+                {
+                    "text": line_text,
+                    "confidence": confidence,
+                }
+            )
+
+        text = "\n".join(item["text"] for item in result)
+
+        return text, result
