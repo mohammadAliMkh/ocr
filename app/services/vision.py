@@ -42,7 +42,7 @@ class VisionAnalyzer:
 
             if missing:
                 log.warning(
-                    "Requested Tesseract languages are not installed: %s",
+                    "Tesseract are not installed: %s",
                     ", ".join(missing),
                 )
 
@@ -53,7 +53,7 @@ class VisionAnalyzer:
             self.tesseract_ok = True
 
             log.info(
-                "Tesseract loaded successfully, version: %s, languages: %s",
+                "Tesseract started v%s | lang:%s",
                 self.tesseract_version,
                 "+".join(chosen),
             )
