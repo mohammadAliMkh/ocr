@@ -3,6 +3,7 @@ import logging
 from fastapi import APIRouter
 
 from app.config import get_settings
+from app.deps import container
 
 router = APIRouter(tags=["system"])
 
@@ -17,4 +18,7 @@ async def get_config():
 @router.get("/health")
 async def health():
     log.info("health check requested.")
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "vision": container.vision.status(),
+    }
