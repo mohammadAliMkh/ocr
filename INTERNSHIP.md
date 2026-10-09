@@ -91,8 +91,8 @@ app/
 ### اسپرینت ۳ — OCR تصویر
 | # | تیکت | وضعیت |
 |---|------|-------|
-| T13 | OCR کلاسیک با Tesseract (`vision.py`) | 🔶 |
-| T14 | کلاینت `vlm.py` با httpx (اول با سرور Mock) | ⬜ |
+| T13 | OCR کلاسیک با Tesseract (`vision.py`) | ✅ |
+| T14 | کلاینت `vlm.py` با httpx (اول با سرور Mock) | 🔶 |
 | T15 | `prompts.py` + استخراج JSON از جواب مدل | ⬜ |
 | T16 | `pipeline.py`: خط لوله‌ی تصویر (Tesseract + VLM) | ⬜ |
 
@@ -107,20 +107,20 @@ app/
 **محدودیت محیط شرکت:** ادمین نیستیم؛ Tesseract و ffmpeg نصب نیستند؛ GPU و مدل بینایی واقعی نداریم. پس: Tesseract باید **بی‌صدا غیرفعال شود** اگر نبود (شرکت ← مسیر degrade تست می‌شود، خونه ← OCR واقعی با زبان `fas`)؛ VLM با **سرور Mock سازگار با OpenAI** جلو می‌رود.
 **تصمیم طراحی:** فعلاً فقط تصویر ← به‌جای numpy/opencv مستقیم با Pillow کار می‌کنیم (cv2 برای ویدیو در اسپرینت ۴). YOLO/چهره/رسم کادر/گزارش مال اسپرینت‌های بعد.
 
-#### 🔶 T13 — Tesseract در `app/services/vision.py`
+#### ✅ T13 — Tesseract در `app/services/vision.py`
 1. نصب `pytesseract` و `pillow` + `requirements.txt`؛ تلاش برای نصب موتور (`winget install --id UB-Mannheim.TesseractOCR --scope user`؛ اگر ادمین خواست، بی‌خیال). تست: `pytesseract.get_tesseract_version()` ← نسخه یا `TesseractNotFoundError`. مفهوم: پکیج pip فقط wrapper است که `tesseract.exe` را با subprocess صدا می‌زند. ✅
 2. Settings: `enable_tesseract: bool = True`، `tesseract_langs: str = "eng"` (خونه: `fas+eng`)، `tesseract_min_conf: float = 40.0`، `tesseract_cmd: str = ""` (نصب‌کننده‌ی ویندوز PATH را عوض نمی‌کند) + `tesseract_lang_list` + `.env.example`. ✅
-3. (۳الف ← **داده شد**: اسکلت کلاس + `load()` فقط با نسخه و try/except؛ ۳ب: زبان‌ها) `VisionAnalyzer(settings)` با `load()`: اگر `tesseract_cmd` داشت ← `pytesseract.pytesseract.tesseract_cmd`؛ نسخه و `get_languages()`؛ زبان‌های موجود را نگه دار، کمبودها را warning کن؛ هر خطا ← `log.warning` و غیرفعال (Graceful Degradation، نه کرش سرور).
-4. `ocr_image(path) -> str` با `image_to_string` (اگر غیرفعال ← `""`).
-5. `image_to_data(..., output_type=DICT)` ← گروه‌بندی کلمه‌ها به سطر با کلید `(block, par, line)`، فیلتر `conf < min_conf`، خروجی `(text, lines)` که هر line = `{"text", "confidence" (۰..۱)}`. (bbox بعداً برای رسم کادر.)
-6. `container.vision` + `load()` در lifespan با `asyncio.to_thread` + `status()` در `/api/health`.
+3. (۳الف ✅: اسکلت کلاس + `load()` با نسخه و try/except؛ ۳ب ✅: `get_languages` ← `chosen`/`missing`، هیچ زبانی ← raise ← غیرفعال) `VisionAnalyzer(settings)` با `load()`: اگر `tesseract_cmd` داشت ← `pytesseract.pytesseract.tesseract_cmd`؛ نسخه و `get_languages()`؛ زبان‌های موجود را نگه دار، کمبودها را warning کن؛ هر خطا ← `log.warning` و غیرفعال (Graceful Degradation، نه کرش سرور).
+4. `ocr_image(path) -> str` با `image_to_string` (اگر غیرفعال ← `""`). ✅
+5. (۵الف ✅: کاوش خروجی `image_to_data`؛ ۵ب ✅: متد `ocr_lines`) `image_to_data(..., output_type=DICT)` ← گروه‌بندی کلمه‌ها به سطر با کلید `(block, par, line)`، فیلتر `conf < min_conf`، خروجی `(text, lines)` که هر line = `{"text", "confidence" (۰..۱)}`. (bbox بعداً برای رسم کادر.)
+6. (۶الف ✅: `container.vision` + load در lifespan؛ ۶ب ✅: `status()` در health) `container.vision` + `load()` در lifespan با `asyncio.to_thread` + `status()` در `/api/health`.
 
-#### ⬜ T14 — `app/services/vlm.py` با httpx + سرور Mock
-1. نصب `httpx`؛ Settings: `vlm_base_url` (پیش‌فرض Mock: `http://127.0.0.1:9000/v1`)، `vlm_model`، `vlm_api_key="EMPTY"`، `vlm_timeout_s`، `vlm_max_tokens`، `vlm_temperature`.
-2. `tools/mock_vlm.py` (کارآموز خودش می‌نویسد): FastAPI روی پورت 9000 با `GET /v1/models` و `POST /v1/chat/completions` به شکل پاسخ OpenAI (`choices[0].message.content`) با یک JSON ثابت. مفهوم: «قرارداد OpenAI» که vLLM/Ollama/... همه پیاده می‌کنند.
-3. `VLMError` + `VLMClient`: `httpx.AsyncClient` تنبل (lazy) با `base_url`/`timeout`/هدر `Authorization`، و `aclose()`.
-4. `check_ready()` ← `GET /models` ← `(bool, پیام)`.
-5. `chat(messages) -> str` ← `POST /chat/completions`؛ خطای شبکه/HTTP≥400/شکل نامعتبر ← `VLMError`.
+#### 🔶 T14 — `app/services/vlm.py` با httpx + سرور Mock
+1. نصب `httpx`؛ Settings: `vlm_base_url` (پیش‌فرض Mock: `http://127.0.0.1:9000/v1`)، `vlm_model`، `vlm_api_key="EMPTY"`، `vlm_timeout_s`، `vlm_max_tokens`، `vlm_temperature`. ✅
+2. (۲الف ✅: `GET /v1/models`؛ ۲ب ✅: `POST /v1/chat/completions` با `content` = رشته‌ی JSON ثابت) `tools/mock_vlm.py` (کارآموز خودش می‌نویسد): FastAPI روی پورت 9000 با `GET /v1/models` و `POST /v1/chat/completions` به شکل پاسخ OpenAI (`choices[0].message.content`) با یک JSON ثابت. مفهوم: «قرارداد OpenAI» که vLLM/Ollama/... همه پیاده می‌کنند.
+3. ✅ `VLMError` + `VLMClient`: `httpx.AsyncClient` تنبل (lazy) با `base_url`/`timeout`/هدر `Authorization`، و `aclose()`.
+4. ✅ `check_ready()` ← `GET /models` ← `(bool, پیام)` (خطای شبکه / HTTP≥400 / مدل در لیست نیست).
+5. ← **داده شد** `chat(messages, **extra) -> str` ← `POST /chat/completions`؛ خطای شبکه/HTTP≥400/شکل نامعتبر ← `VLMError`.
 6. `encode_image_data_url(path, max_side)` با Pillow (`exif_transpose`، کوچک کردن، JPEG، base64) + محتوای چندبخشی `image_url` + `text`.
 7. `container.vlm` + `Container.shutdown()` ← `vlm.aclose()` در lifespan (بدهی اسپرینت ۲). (اختیاری بعداً: Ollama روی همین سیستم هم OpenAI-compatible است.)
 
@@ -236,6 +236,21 @@ app/
 - سشن خونه‌ی «اسپرینت ۳» شروع شد: کارفرما کد را چک کرد (`config.py` هنوز فیلدهای Tesseract را ندارد) ← T13 قدم ۲ دوباره با قالب کامل داده شد + پیشنهاد اختیاری نصب موتور UB-Mannheim با زبان Persian روی خونه.
 - موتور Tesseract روی خونه نصب شد (`--list-langs` ← `eng`، `fas`، `osd`). کارآموز `TESSERACT_CMD=...` را در PowerShell زد ← درس: خط `.env` تنظیمات است نه دستور ترمینال. `.env` خونه: `TESSERACT_LANGS=fas+eng` و `TESSERACT_CMD`.
 - T13 قدم ۲ ✅ (`tesseract_lang_list` را کارفرما به درخواست کارآموز نوشت). تست کارفرما: `True fas+eng ['fas','eng'] 40.0 '<مسیر exe>'`؛ `ENABLE_TESSERACT=false` ← `False` بولین؛ `' fas + +eng '` ← `['fas','eng']`؛ `abc` ← ValidationError. commit: `feat: add tesseract settings`. قدم ۳الف داده شد.
+- T13 قدم ۳الف ✅ (تست کارفرما: عادی ← `True 5.5.3.20260724`؛ مسیر غلط ← warning و `False None` بدون traceback؛ `ENABLE_TESSERACT=false` ← info و `False None`). کارآموز فکر کرد `False` در حالت ۲ و ۳ ایراد است ← توضیح: همین Graceful Degradation است. commit: `feat: load tesseract with graceful fallback`. قدم ۳ب (زبان‌ها) داده شد.
+- T13 قدم ۳ب ✅ (تست کارفرما: `fas+eng` ← `['fas','eng']`؛ `fas+deu` ← warning `deu` و `['fas']`؛ `deu` ← disabled با `False`؛ مسیر غلط ← `False None []`). مفهوم: چک زبان موقع استارت به‌جای خطا وسط تحلیل؛ `raise` داخل `try` برای استفاده‌ی دوباره از مسیر غیرفعال‌سازی. commit: `feat: check installed tesseract languages on load`. قدم ۴ (`ocr_image`) داده شد.
+- T13 قدم ۴ ✅: اولین OCR واقعی فارسی+انگلیسی روی اسکرین‌شات (تست کارفرما: فارسی خوب، کلمه‌های کوتاه وسط متن مخلوط گاهی غلط مثل «یه» ← `ay`؛ غیرفعال ← `''`). مفهوم: Tesseract در متن دوجهته علامت‌های نامرئی `‎`/`‏` (LRM/RLM) می‌گذارد ← بعداً قبل از جست‌وجو/ادغام با VLM پاک شوند. commit: `feat: extract plain text from images with tesseract`. قدم ۵الف داده شد.
+- T13 قدم ۵الف: کارآموز خروجی را گرفت ولی نفهمید ← کارفرما با خروجی واقعی `data/sample.JPG` توضیح داد: جدول ستونی (هر کلید یک ستون، index = ردیف)؛ سلسله‌مراتب page>block>par>line>word با ستون `level` (۱..۵)؛ `conf=-1` = ردیف‌های ظرف (نه کلمه)؛ کلمه‌های یک سطر ← `(block, par, line)` یکسان؛ کلمه‌های فقط‌فاصله و conf پایین (`'rors'` با ۰) باید فیلتر شوند. قدم ۵ب (`ocr_lines`) داده شد.
+- T13 قدم ۵ب ✅ (کد تمیز با `setdefault`؛ تست کارفرما: ۷ سطر با confidence ۰.۷۲ تا ۰.۹۴، `rors` و سطرهای فقط‌فاصله حذف شدند؛ `TESSERACT_MIN_CONF=90` ← ۶ سطر سوراخ‌سوراخ؛ غیرفعال ← `('', [])`). مفهوم: آستانه‌ی conf = معامله‌ی «آشغال کمتر» در برابر «جا انداختن کلمه‌ی درست». commit: `feat: group tesseract words into lines with confidence`. قدم ۶الف داده شد.
+- T13 قدم ۶الف ✅ (تست کارفرما با uvicorn.Server: استارت ← `Tesseract started ... fas+eng` و health ← ok؛ مسیر غلط ← warning و سرور بالا آمد). ولی پیام‌های لاگ `vision.py` خارج از قدم عوض شده بودند و دو ایراد رفتاری داشتند: `Tesseract are not installed: deu` (می‌گوید موتور نیست در حالی که زبان نیست) و `version[:7]` ← `5.5.3.2` (نسخه‌ی غلط) ← اصلاح خواسته شد. درس تکراری T7: فقط چیزی را عوض کن که قدم خواسته؛ لاگ هم قرارداد است (کسی با آن دیباگ می‌کند). commit: `feat: load vision analyzer on startup`. قدم ۶ب داده شد.
+- commit ها `07db1d4` و `7e7d43d` (`[:7]` برداشته شد) ولی پیام `Tesseract are not installed` هنوز اصلاح نشده ← دوباره خواسته شد: `fix: clarify missing tesseract languages warning`.
+- T13 قدم ۶ب ✅ (تست کارفرما: عادی ← `{"status":"ok","vision":{"tesseract":"fas+eng"}}`؛ خاموش و مسیر غلط ← `"disabled"` و status همچنان `ok`). commit: `feat: report vision status in health check` ← **T13 بسته شد.** T14 قدم ۱ (httpx + Settings مدل بینایی) داده شد.
+- قدم ۶ب در دو commit رفت: `260be34` فقط `status()`، و `fafb3a9 refactor: report  status in health check` تغییر health (نوع غلط: تغییر قرارداد API = `feat`). تاریخچه بازنویسی نشد؛ درس: فایل‌های یک قدم با هم در یک commit.
+- T14 قدم ۱: `config.py` درست (تست کاربر: `0.28.1 http://127.0.0.1:9000/v1 mock-vlm 120.0 0.2`). ولی `.env.example` با سینتکس پایتون (`vlm_base_url: str = ...`) پر شده بود ← خواسته شد `VLM_BASE_URL=...`؛ و `httpcore`/`certifi` (وابستگی‌های غیرمستقیم) به requirements اضافه شده بودند ← فقط وابستگی مستقیم. پیام `Tesseract are not installed` بار سوم یادآوری شد.
+- اصلاح‌ها ✅: `8bb2ef7 fix: clarify missing tesseract languages warning` و `baeab64 feat: add vlm client settings` (requirements فقط `httpx`؛ `.env.example` با کلید کوچک و کوتیشن ولی درست پارس می‌شود — تست کارفرما با `_env_file`). **T14 قدم ۱ ✅.** قدم ۲الف (سرور Mock با `GET /v1/models`) داده شد.
+- T14 قدم ۲الف ✅ (`tools/mock_vlm.py` مستقل از `app`؛ تست کارفرما با curl ← `{"object":"list","data":[{"id":"mock-vlm",...}]}`). جواب سؤال پورت نیامد ← کارفرما توضیح داد (۸۰۰۰ = API خودمان؛ هر پورت فقط یک پروسه). اصلاح برداشت: dict پایتون است که FastAPI به JSON سریال می‌کند، نه «فایل json». commit: `chore: add mock vlm server with models endpoint`. قدم ۲ب داده شد.
+- T14 قدم ۲ب ✅ (جواب درست از `/docs` سرور Mock؛ کارآموز درست گفت `content` رشته است). مفهوم: LLM همیشه متن تولید می‌کند، حتی وقتی JSON می‌خواهی ← پارس و تعمیر در T15. commit: `chore: add chat completions endpoint to mock vlm`. قدم ۳ (`VLMError` + `VLMClient` با کلاینت تنبل و `aclose`) داده شد.
+- T14 قدم ۳ ✅ (`before: None` / `same object: True` / `base_url: .../v1/` / `after close: None`). کارآموز درست گفت بدون `if` هر بار کلاینت جدید ← حافظه و اتصال دوباره؛ تکمیل: هزینه‌ی دست‌دادن TCP/TLS و نشت سوکت (کلاینت‌های قبلی هیچ‌وقت بسته نمی‌شوند). commit: `feat: add lazy vlm http client`. قدم ۴ (`check_ready`) داده شد.
+- T14 قدم ۴ ✅ (تست کارفرما: Mock روشن ← `(True,'ready')`؛ `VLM_MODEL=gpt-4o` ← not served؛ پورت بسته ← `All connection attempts failed`؛ مسیر غلط ← `VLM HTTP 404`). کارآموز خودش حالت جواب خراب (`ValueError/KeyError/TypeError` ← `Invalid VLM models response`) را هم اضافه کرد 👏. commit: `feat: check vlm server readiness`. قدم ۵ (`chat`) داده شد. مفهوم: `check_ready` جواب بله/نه می‌دهد ولی `chat` باید raise کند (تصمیم با صدازننده).
 
 ---
 
