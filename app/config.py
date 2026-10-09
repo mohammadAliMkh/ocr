@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     tesseract_langs: str = "eng"
     tesseract_min_conf: float = 40.0
     tesseract_cmd: str = ""
+    vlm_base_url: str = "http://127.0.0.1:9000/v1"
+    vlm_model: str = "mock-vlm"
+    vlm_api_key: str = "EMPTY"
+    vlm_timeout_s: float = 120.0
+    vlm_max_tokens: int = 2048
+    vlm_temperature: float = 0.2
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
