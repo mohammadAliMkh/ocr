@@ -119,3 +119,9 @@ class VisionAnalyzer:
         text = "\n".join(item["text"] for item in result)
 
         return text, result
+
+    def status(self) -> dict:
+        if not self.tesseract_ok:
+            return {"tesseract": "disabled"}
+
+        return {"tesseract": "+".join(self.tesseract_langs)}
