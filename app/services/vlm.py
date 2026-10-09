@@ -31,3 +31,28 @@ class VLMClient:
         if self._client is not None:
             await self._client.aclose()
             self._client = None
+
+    async def check_ready(self) -> tuple[bool, str]:
+        try:
+            response = await self.client.get(
+                "/models",
+                timeout=5.0,
+            )
+        except httpx.HTTPError as exc:
+            return False, f"VLM unreachable: {exc}"
+
+        if response.status_code >= 400:
+            return False, f"VLM HTTP {response.status_code}"
+
+        try:
+            data = response.json()
+            ids = [item["id"] for item in data["data"]]
+        except (ValueError, KeyError, TypeError):
+            return False, "Invalid VLM models response"
+
+        model = self.settings.vlm_model
+
+        if model not in ids:
+            return False, f"model {model} not served; available: {ids}"
+
+        return True, "ready"
