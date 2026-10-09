@@ -42,7 +42,7 @@ class VisionAnalyzer:
 
             if missing:
                 log.warning(
-                    "Tesseract are not installed: %s",
+                    "Tesseract languages not installed: %s",
                     ", ".join(missing),
                 )
 
