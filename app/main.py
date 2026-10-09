@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -5,8 +6,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import config
+from app.deps import container
 from app.logging_setup import setup_logging
-from app.routers import health, analyze
+from app.routers import analyze, health
 
 settings = config.get_settings()
 
@@ -18,6 +20,8 @@ log = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
 
     settings.build()
+
+    await asyncio.to_thread(container.vision.load)
 
     log.info("Starting %s v%s", settings.app_name, settings.app_version)
     log.info("Data directory: %s", settings.data_dir)
