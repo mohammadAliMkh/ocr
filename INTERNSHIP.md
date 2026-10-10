@@ -92,8 +92,8 @@ app/
 | # | تیکت | وضعیت |
 |---|------|-------|
 | T13 | OCR کلاسیک با Tesseract (`vision.py`) | ✅ |
-| T14 | کلاینت `vlm.py` با httpx (اول با سرور Mock) | 🔶 |
-| T15 | `prompts.py` + استخراج JSON از جواب مدل | ⬜ |
+| T14 | کلاینت `vlm.py` با httpx (اول با سرور Mock) | ✅ |
+| T15 | `prompts.py` + استخراج JSON از جواب مدل | 🔶 |
 | T16 | `pipeline.py`: خط لوله‌ی تصویر (Tesseract + VLM) | ⬜ |
 
 ### اسپرینت‌های بعد (وقتی رسیدیم ریز می‌شوند)
@@ -115,18 +115,18 @@ app/
 5. (۵الف ✅: کاوش خروجی `image_to_data`؛ ۵ب ✅: متد `ocr_lines`) `image_to_data(..., output_type=DICT)` ← گروه‌بندی کلمه‌ها به سطر با کلید `(block, par, line)`، فیلتر `conf < min_conf`، خروجی `(text, lines)` که هر line = `{"text", "confidence" (۰..۱)}`. (bbox بعداً برای رسم کادر.)
 6. (۶الف ✅: `container.vision` + load در lifespan؛ ۶ب ✅: `status()` در health) `container.vision` + `load()` در lifespan با `asyncio.to_thread` + `status()` در `/api/health`.
 
-#### 🔶 T14 — `app/services/vlm.py` با httpx + سرور Mock
+#### ✅ T14 — `app/services/vlm.py` با httpx + سرور Mock
 1. نصب `httpx`؛ Settings: `vlm_base_url` (پیش‌فرض Mock: `http://127.0.0.1:9000/v1`)، `vlm_model`، `vlm_api_key="EMPTY"`، `vlm_timeout_s`، `vlm_max_tokens`، `vlm_temperature`. ✅
 2. (۲الف ✅: `GET /v1/models`؛ ۲ب ✅: `POST /v1/chat/completions` با `content` = رشته‌ی JSON ثابت) `tools/mock_vlm.py` (کارآموز خودش می‌نویسد): FastAPI روی پورت 9000 با `GET /v1/models` و `POST /v1/chat/completions` به شکل پاسخ OpenAI (`choices[0].message.content`) با یک JSON ثابت. مفهوم: «قرارداد OpenAI» که vLLM/Ollama/... همه پیاده می‌کنند.
 3. ✅ `VLMError` + `VLMClient`: `httpx.AsyncClient` تنبل (lazy) با `base_url`/`timeout`/هدر `Authorization`، و `aclose()`.
 4. ✅ `check_ready()` ← `GET /models` ← `(bool, پیام)` (خطای شبکه / HTTP≥400 / مدل در لیست نیست).
-5. ← **داده شد** `chat(messages, **extra) -> str` ← `POST /chat/completions`؛ خطای شبکه/HTTP≥400/شکل نامعتبر ← `VLMError`.
-6. `encode_image_data_url(path, max_side)` با Pillow (`exif_transpose`، کوچک کردن، JPEG، base64) + محتوای چندبخشی `image_url` + `text`.
-7. `container.vlm` + `Container.shutdown()` ← `vlm.aclose()` در lifespan (بدهی اسپرینت ۲). (اختیاری بعداً: Ollama روی همین سیستم هم OpenAI-compatible است.)
+5. ✅ `chat(messages, **extra) -> str` ← `POST /chat/completions`؛ خطای شبکه/HTTP≥400/شکل نامعتبر ← `VLMError`.
+6. (۶الف ✅: بدون resize؛ ۶ب ✅: `max_side` با `image.thumbnail`؛ ۶ج ✅: `build_user_content(text, images)`؛ فیلد `vlm_image_max_side` در T16 وقتی pipeline صدا می‌زند) `encode_image_data_url(path, max_side)` با Pillow (`exif_transpose`، کوچک کردن، JPEG، base64) + محتوای چندبخشی `image_url` + `text`.
+7. (۷الف ✅: `container.vlm` + وضعیت VLM در `/api/health`؛ ۷ب ✅: `Container.shutdown()` ← `vlm.aclose()` در lifespan؛ ۷ج ✅: لغو تسک‌های پس‌زمینه در shutdown، قبل از بستن کلاینت) `container.vlm` + `Container.shutdown()` ← `vlm.aclose()` در lifespan (بدهی اسپرینت ۲). (اختیاری بعداً: Ollama روی همین سیستم هم OpenAI-compatible است.)
 
-#### ⬜ T15 — `app/prompts.py` + استخراج JSON
-1. `IMAGE_SYSTEM` (نسخه‌ی ساده‌ی مرجع: `summary`، `ocr_text`، `document_type`، `languages`، `entities`، `notes`؛ «فقط JSON، ترجمه نکن، حدس نزن») + `image_user_text(hint=None)`.
-2. `extract_json(text) -> dict`: خالی ← `ValueError`؛ `json.loads`.
+#### 🔶 T15 — `app/prompts.py` + استخراج JSON
+1. (۱الف ✅: `IMAGE_SYSTEM`؛ ۱ب ✅: `image_user_text(hint=None)`) `IMAGE_SYSTEM` (نسخه‌ی ساده‌ی مرجع: `summary`، `ocr_text`، `document_type`، `languages`، `entities`، `notes`؛ «فقط JSON، ترجمه نکن، حدس نزن») + `image_user_text(hint=None)`.
+2. ← **داده شد** `extract_json(text) -> dict` در `vlm.py`: خالی ← `ValueError`؛ `json.loads`؛ غیر dict ← `ValueError`. تست با `scratch_json.py` (حالت code fence عمداً شکست می‌خورد ← انگیزه‌ی قدم ۳).
 3. پاک کردن ```` ```json ```` دور جواب. 4. برش از اولین `{` تا آخرین `}`. 5. حذف ویرگول اضافه قبل از `}`/`]` با regex. (Mock را طوری کن که هر حالت را برگرداند.)
 6. `VLMClient.json_call(system, user_text, images)`: chat ← extract_json؛ اگر خراب بود یک بار دیگر با یادآوری کوتاه + `response_format={"type":"json_object"}`؛ وگرنه `VLMError`.
 
@@ -150,6 +150,8 @@ app/
 - Jobها فقط در RAM ← با ری‌استارت گم می‌شوند و فایل‌ها یتیم می‌مانند (بازیابی از `report.json` در اسپرینت ۶).
 - SSE: هدرهای `Cache-Control: no-cache` و `X-Accel-Buffering: no` (اسپرینت ۷، پشت پراکسی).
 - `progress` در `JobSnapshot` با `Field(ge=0, le=1)`؛ از `set_progress` استفاده شود، نه مقداردهی مستقیم.
+- `/api/health` با VLM خاموش روی ویندوز ~۴ ثانیه طول می‌کشد (connection refused کند است) ← بعداً: timeout کوتاه‌تر یا cache کردن نتیجه‌ی `check_ready` برای چند ثانیه.
+- لاگ `httpx` در سطح INFO برای هر درخواست یک خط می‌نویسد ← بعداً در `logging_setup` روی WARNING.
 
 ---
 
@@ -252,10 +254,23 @@ app/
 - T14 قدم ۳ ✅ (`before: None` / `same object: True` / `base_url: .../v1/` / `after close: None`). کارآموز درست گفت بدون `if` هر بار کلاینت جدید ← حافظه و اتصال دوباره؛ تکمیل: هزینه‌ی دست‌دادن TCP/TLS و نشت سوکت (کلاینت‌های قبلی هیچ‌وقت بسته نمی‌شوند). commit: `feat: add lazy vlm http client`. قدم ۴ (`check_ready`) داده شد.
 - T14 قدم ۴ ✅ (تست کارفرما: Mock روشن ← `(True,'ready')`؛ `VLM_MODEL=gpt-4o` ← not served؛ پورت بسته ← `All connection attempts failed`؛ مسیر غلط ← `VLM HTTP 404`). کارآموز خودش حالت جواب خراب (`ValueError/KeyError/TypeError` ← `Invalid VLM models response`) را هم اضافه کرد 👏. commit: `feat: check vlm server readiness`. قدم ۵ (`chat`) داده شد. مفهوم: `check_ready` جواب بله/نه می‌دهد ولی `chat` باید raise کند (تصمیم با صدازننده).
 
+### جلسه‌ی ۸ — 2026-10-10 (شرکت)
+- همگام‌سازی شرکت: checkout روی `8c5b120` و هم‌تراز با `origin/main`، working tree تمیز. حافظه‌ی Claude روی سیستم شرکت از روی همین فایل بازیابی شد (سشن‌ها و حافظه‌ی Claude بین دو سیستم منتقل نمی‌شوند؛ فقط git). venv شرکت `httpx` را ندارد (خونه نصب شده بود) ← قبل از ادامه `pip install -r requirements.txt`. سشن «مدیریت کارآموزی» برای کارهای بین‌اسپرینتی پیشنهاد شد. قدم بعدی همچنان T14 قدم ۵ (`chat`).
+- `httpx 0.28.1` روی venv شرکت نصب شد. لینک نصب‌کننده‌ی Tesseract (ویکی UB-Mannheim) دوباره داده شد تا روی شرکت هم امتحان شود (بدون ادمین: گزینه‌ی «فقط برای من»؛ اگر رمز ادمین خواست، بی‌خیال). T14 قدم ۵ (`chat`) با قالب کامل دوباره داده شد.
+- T14 قدم ۵ ✅ (کارآموز: Mock روشن ← `str 212`؛ خاموش ← `VLMError: VLM unreachable`. تست کارفرما با Mock موقت: `**extra` روی payload می‌نشیند و `temperature` را override می‌کند؛ 500 ← `VLM HTTP 500` با ۳۰۰ کاراکتر؛ `choices` خالی ← IndexError ← VLMError؛ بدنه‌ی غیر JSON ← VLMError). یک ایراد: `content: null` ← متد `None` برمی‌گرداند (خلاف `-> str`؛ در T15 روی `.strip()` می‌ترکد) ← `return content or ""` خواسته شد. مفهوم: زنجیره‌ی `from exc` در traceback (httpcore ← httpx ← VLMError؛ خط آخر مهم است). جواب سؤال نیامد ← کارفرما توضیح داد. commit: `feat: add chat completion call to vlm client`. قدم ۶الف (`encode_image_data_url` بدون resize) داده شد.
+- اصلاح `content or ""` انجام و commit شد (`6d24819`). T14 قدم ۶الف ✅ (کارآموز: `data:image/jpeg;base64,/9j/4AAQ...`، طول ۱۷۶۱۰۷ در برابر فایل ۱۳۲۱۴۳۹ بایتی). کشف کارفرما: `data/sample.jpg` در واقع PNG با حالت RGBA است (۸۹۹×۱۷۵۰) ← مفاهیم: پسوند دروغ می‌گوید و Pillow از روی محتوا تشخیص می‌دهد؛ `convert("RGB")` لازم است چون JPEG کانال alpha ندارد؛ `/9j/` امضای JPEG در base64؛ base64 حدود ۳۳٪ بزرگ‌تر از بایت خام. commit: `feat: encode images as jpeg data urls`. قدم ۶ب (`max_side` با `thumbnail`) داده شد.
+- T14 قدم ۶الف commit شد (`1db24e2`). قدم ۶ب ✅ (کارآموز: `97811 24659 176107`). برداشت غلط کارآموز: فکر کرد عدد اول «عکس اورجینال» است ← توضیح: پیش‌فرض `max_side=1280` روی عکس ۱۷۵۰ پیکسلی اعمال شده (۶۵۸×۱۲۸۰)؛ عدد سوم (۴۰۰۰) با خروجی قدم ۶الف برابر است چون `thumbnail` هیچ‌وقت بزرگ نمی‌کند. مفهوم: مقدار پیش‌فرض پارامتر هم رفتار است؛ نصف شدن ضلع ← حدوداً یک‌چهارم حجم. commit: `feat: cap image size before encoding`. قدم ۶ج (محتوای چندبخشی) داده شد.
+- قدم ۶ب commit شد (`ac2de01`). T14 قدم ۶ج ✅ (کارآموز: `hi` / `['image_url', 'text']` / `str 212`؛ کد تمیز). مفهوم: `content` در قرارداد OpenAI یا رشته است یا لیست تکه‌ها؛ عکس اول، متن آخر. commit: `feat: build multipart user content for vlm`. قدم ۷الف (`container.vlm` + health) داده شد.
+- قدم ۶ج commit شد (`f064b4b`). T14 قدم ۷الف ✅ (تست کارفرما با uvicorn.Server: Mock خاموش ← `ready: false` با `VLM unreachable` و status همچنان `ok`، ولی ۴.۱ ثانیه طول کشید؛ Mock روشن ← `ready: true` در ۰.۰۲ ثانیه). **Tesseract روی سیستم شرکت هم نصب شد** (health ← `fas+eng`) ← از این به بعد OCR واقعی در شرکت هم قابل تست است. commit: `feat: report vlm readiness in health check`. قدم ۷ب (`Container.shutdown`) داده شد.
+- قدم ۷الف commit شد (`bb805d7`). T14 قدم ۷ب ✅ (کارآموز: `VLM client closed` ← `Shutdown complete`؛ جواب سؤال درست: قبل از `yield` = استارت، بعدش = خاموشی). تست کارفرما: بعد از shutdown `_client is None`؛ ولی Job در حال اجرا `running 0.2` ماند و تسکش pending (`done=False`) ← انگیزه‌ی قدم ۷ج. نکته: چون کلاینت تنبل است، بستن زودهنگام بی‌صدا دوباره ساخته می‌شود و هیچ‌وقت بسته نمی‌شود (باگ پنهان). commit: `feat: close vlm client on shutdown`. قدم ۷ج (لغو تسک‌ها) داده شد.
+- قدم ۷ب commit شد (`a0207c8`). T14 قدم ۷ج ✅ (کارآموز گفت «عددی نشان نداد ولی اوکی بود»؛ تست کارفرما: آپلود + خاموشی وسط کار ← `Cancelled 1 background tasks` ← `VLM client closed` ← `Shutdown complete`، و `container.tasks` خالی). مفهوم: ترتیب خاموشی برعکس ترتیب وابستگی (اول مصرف‌کننده‌ها، بعد ابزار)؛ `CancelledError` از `Exception` ارث نمی‌برد پس `except Exception` در pipeline آن را نمی‌بلعد. commit: `feat: cancel background tasks on shutdown` ← **T14 بسته شد.** T15 قدم ۱الف (`IMAGE_SYSTEM`) داده شد.
+- قدم ۷ج commit شد (`e012aa8`). T15 قدم ۱الف ✅ (پرامپت خوب و کامل: چهار قانون + ساختار شش‌کلیدی + نوع هر مقدار؛ تست کارفرما: `[] 1083`). یک بهبود خواسته شد: مقادیر مجاز `entities.type` در پرامپت فهرست شوند (`person|organization|date|amount|phone|email|address|id|other`) تا مدل نوع‌ها را به سلیقه‌ی خودش و به هر زبانی نسازد. مفهوم: پرامپت هم قرارداد است (کلیدهایش باید با schema و کد پارس یکی باشند). commit: `feat: add image analysis system prompt`. قدم ۱ب (`image_user_text`) داده شد.
+- T15 قدم ۱الف commit شد (`dc8213e`) ولی **بدون** فهرست مقادیر `entities.type` (بار دوم خواسته شد: `fix: list allowed entity types in image prompt`). قدم ۱ب ✅ (کارآموز: `72 93 True True`؛ خودش `hint.strip()` را هم اضافه کرد 👍). مفهوم: system = قانون ثابت، user = متغیر هر درخواست. commit: `feat: add image user prompt builder`. قدم ۲ (`extract_json` پایه) داده شد.
+
 ---
 
 ## ۶. محیط و نسخه‌ها
-- **شرکت:** پایتون 3.12.10 · fastapi 0.141.1 · starlette 1.7.0 · uvicorn 0.54.0 · pydantic 2.13.5 · بدون دسترسی ادمین، بدون GPU، Tesseract و ffmpeg نصب نیستند (winget هست؛ Ollama هم نصب است)
+- **شرکت:** پایتون 3.12.10 · fastapi 0.141.1 · starlette 1.7.0 · uvicorn 0.54.0 · pydantic 2.13.5 · بدون دسترسی ادمین، بدون GPU، ffmpeg نصب نیست؛ Tesseract از 2026-10-10 نصب است (`fas+eng`، مسیر در `.env`)؛ Ollama هم نصب است
 - **خونه:** پایتون 3.14.5 · fastapi 0.142.2 · pydantic-settings 2.15.0 (بقیه مشابه)
 - کد باید روی هر دو اجرا شود (از امکانات مخصوص ۳.۱۳/۳.۱۴ استفاده نشود).
 - پروژه‌ی مرجع در Dockerfile از `python:3.11` استفاده می‌کند.
