@@ -24,6 +24,25 @@ def encode_image_data_url(path: Path, max_side: int = 1280) -> str:
     encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
     return f"data:image/jpeg;base64,{encoded}"
 
+def build_user_content(text: str, images: list[str] | None = None) -> str | list[dict]:
+    if not images:
+        return text
+
+    content = [
+        {
+            "type": "image_url",
+            "image_url": {"url": url},
+        }
+        for url in images
+    ]
+
+    content.append({
+        "type": "text",
+        "text": text,
+    })
+
+    return content
+
 class VLMClient:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
