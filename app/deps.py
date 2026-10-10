@@ -27,6 +27,14 @@ class Container:
         return task
     
     async def shutdown(self) -> None:
+        tasks = list(self.tasks)
+
+        for task in tasks:
+            task.cancel()
+
+        await asyncio.gather(*tasks, return_exceptions=True)
+        log.info("Cancelled %d background tasks", len(tasks))
+
         await self.vlm.aclose()
         log.info("VLM client closed")
 
