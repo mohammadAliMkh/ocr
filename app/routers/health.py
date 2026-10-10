@@ -18,7 +18,9 @@ async def get_config():
 @router.get("/health")
 async def health():
     log.info("health check requested.")
+    ready, message = await container.vlm.check_ready()
     return {
         "status": "ok",
         "vision": container.vision.status(),
+        "vlm": {"ready": ready, "message": message},
     }

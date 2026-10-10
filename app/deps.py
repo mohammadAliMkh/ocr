@@ -5,6 +5,7 @@ from typing import Any
 from app.config import get_settings
 from app.services.jobs import JobStore
 from app.services.vision import VisionAnalyzer
+from app.services.vlm import VLMClient
 
 
 class Container:
@@ -13,6 +14,7 @@ class Container:
         self.tasks: set[asyncio.Task] = set()
         self.settings = get_settings()
         self.vision = VisionAnalyzer(self.settings)
+        self.vlm = VLMClient(self.settings)
 
     def spawn(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task:
         task = asyncio.create_task(coro)
