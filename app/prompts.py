@@ -14,7 +14,7 @@ IMAGE_SYSTEM = """\
   "ocr_text": "متن استخراج‌شده از تصویر، بدون ترجمه",
   "document_type": "نوع سند یا تصویر",
   "languages": ["کد زبان‌های شناسایی‌شده، مانند fa یا en"],
-  "entities": [{"type": "نوع موجودیت", "value": "مقدار دقیق موجودیت"}],
+  "entities": [{"type": "person|organization|date|amount|phone|email|address|id|other", "value": "مقدار دقیق موجودیت"}],
   "notes": "نکات تکمیلی ضروری درباره تصویر"
 }
 
