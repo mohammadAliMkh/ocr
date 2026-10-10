@@ -7,6 +7,10 @@ from app.services.jobs import JobStore
 from app.services.vision import VisionAnalyzer
 from app.services.vlm import VLMClient
 
+import logging
+
+log = logging.getLogger(__name__)
+
 
 class Container:
     def __init__(self) -> None:
@@ -21,6 +25,10 @@ class Container:
         self.tasks.add(task)
         task.add_done_callback(self.tasks.discard)
         return task
+    
+    async def shutdown(self) -> None:
+        await self.vlm.aclose()
+        log.info("VLM client closed")
 
 
 container = Container()

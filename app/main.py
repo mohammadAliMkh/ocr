@@ -28,6 +28,8 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    await container.shutdown()
+    
     log.info("Shutdown complete")
 
 
