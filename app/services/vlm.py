@@ -56,3 +56,35 @@ class VLMClient:
             return False, f"model {model} not served; available: {ids}"
 
         return True, "ready"
+
+    
+    async def chat(self, messages: list[dict], **extra) -> str:
+        payload = {
+            "model": self.settings.vlm_model,
+            "messages": messages,
+            "max_tokens": self.settings.vlm_max_tokens,
+            "temperature": self.settings.vlm_temperature,
+            **extra,
+        }
+
+        try:
+            response = await self.client.post(
+                "/chat/completions",
+                json=payload,
+            )
+        except httpx.HTTPError as exc:
+            raise VLMError(f"VLM unreachable: {exc}") from exc
+
+        if response.status_code >= 400:
+            raise VLMError(
+                f"VLM HTTP {response.status_code}: {response.text[:300]}"
+            )
+
+        try:
+            data = response.json()
+            content = data["choices"][0]["message"]["content"]
+        except (ValueError, KeyError, TypeError, IndexError) as exc:
+            raise VLMError("Invalid VLM chat completion response") from exc
+
+        return content or ""
+
