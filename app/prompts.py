@@ -20,3 +20,12 @@ IMAGE_SYSTEM = """\
 
 هر شش کلید را همیشه در خروجی قرار بده. مقدار summary، ocr_text، document_type و notes باید رشته باشد. مقدار languages و entities باید آرایه باشد. اگر موجودیتی شناسایی نشد، entities را به صورت آرایه خالی برگردان. اگر نکته‌ای وجود نداشت، notes را رشته خالی قرار بده.
 """
+
+
+def image_user_text(hint: str | None = None) -> str:
+    text = "این تصویر را تحلیل کن و خروجی را دقیقاً در قالب JSON خواسته‌شده برگردان."
+
+    if hint and hint.strip():
+        text += f"\n\nنکته کاربر: {hint.strip()}"
+
+    return text
