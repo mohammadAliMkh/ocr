@@ -15,9 +15,10 @@ log = logging.getLogger(__name__)
 class VLMError(RuntimeError):
     pass
 
-def encode_image_data_url(path: Path) -> str:
+def encode_image_data_url(path: Path, max_side: int = 1280) -> str:
     with Image.open(path) as image:
         image = ImageOps.exif_transpose(image).convert("RGB")
+        image.thumbnail((max_side, max_side))
         buffer = io.BytesIO()
         image.save(buffer, format="JPEG", quality=88)
     encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
