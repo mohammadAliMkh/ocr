@@ -3,6 +3,11 @@ import logging
 import httpx
 
 from app.config import Settings
+import base64
+import io
+from pathlib import Path
+
+from PIL import Image, ImageOps
 
 log = logging.getLogger(__name__)
 
@@ -10,6 +15,13 @@ log = logging.getLogger(__name__)
 class VLMError(RuntimeError):
     pass
 
+def encode_image_data_url(path: Path) -> str:
+    with Image.open(path) as image:
+        image = ImageOps.exif_transpose(image).convert("RGB")
+        buffer = io.BytesIO()
+        image.save(buffer, format="JPEG", quality=88)
+    encoded = base64.b64encode(buffer.getvalue()).decode("ascii")
+    return f"data:image/jpeg;base64,{encoded}"
 
 class VLMClient:
     def __init__(self, settings: Settings) -> None:
